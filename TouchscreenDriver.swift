@@ -25,8 +25,8 @@ var touchscreenMinY: CGFloat = 0
 var targetScreen: NSScreen?
 var screenOffsetX: CGFloat = 0
 var screenOffsetY: CGFloat = 0
-var screenWidth: CGFloat = 1920
-var screenHeight: CGFloat = 1080
+var screenWidth: CGFloat = 2560
+var screenHeight: CGFloat = 720
 
 // ============================================
 // État du toucher
