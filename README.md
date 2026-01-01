@@ -161,8 +161,9 @@ Another app may be using the touchscreen. Either:
 
 The native 2560x720 resolution can make text hard to read. For better readability:
 
-1. Install [BetterDisplay](https://github.com/waydabber/BetterDisplay)
-2. Set Xeneon Edge to 1920x540 (scaled, maintains 32:9 ratio)
+1. Go to **System Settings → Displays**
+2. Select the Xeneon Edge
+3. Choose **1920x540** (maintains 32:9 ratio, larger text)
 
 The driver automatically adapts to any resolution.
 
