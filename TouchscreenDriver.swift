@@ -225,6 +225,7 @@ func setupScreen() {
 func updateScreenGeometry() {
     if let screen = targetScreen {
         let frame = screen.frame
+        let scaleFactor = screen.backingScaleFactor
 
         // NSScreen utilise l'origine en bas à gauche, mais CGEvent utilise l'origine en haut à gauche
         // On doit convertir les coordonnées Y
@@ -233,10 +234,14 @@ func updateScreenGeometry() {
         screenOffsetX = frame.origin.x
         // Convertir Y: cgY = mainHeight - nsY - screenHeight
         screenOffsetY = mainScreenHeight - frame.origin.y - frame.height
+
+        // CGEvent utilise les coordonnées en points logiques
+        // frame.size donne déjà la taille logique, c'est ce qu'on veut
         screenWidth = frame.width
         screenHeight = frame.height
 
-        print("📐 Écran cible: \(Int(screenWidth))x\(Int(screenHeight))")
+        print("📐 Écran cible: \(Int(screenWidth))x\(Int(screenHeight)) points")
+        print("   Backing scale factor: \(scaleFactor)x (HiDPI: \(scaleFactor > 1 ? "oui" : "non"))")
         print("   NSScreen origin: (\(Int(frame.origin.x)), \(Int(frame.origin.y)))")
         print("   CGEvent origin:  (\(Int(screenOffsetX)), \(Int(screenOffsetY)))")
     }
