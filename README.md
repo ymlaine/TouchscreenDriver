@@ -1,175 +1,151 @@
-# Touchscreen Driver pour Corsair Xeneon Edge
+# Touchscreen Driver for Corsair Xeneon Edge
 
-Driver macOS pour transformer les touches sur l'écran tactile en clics à la position absolue.
+A macOS driver that converts touch input from the Corsair Xeneon Edge (14.5" touch bar, 2560x720) into mouse clicks at the correct absolute screen position.
 
-## Comment ça fonctionne
+## Features
+
+- Converts touch events to mouse clicks at the touched position
+- Exclusive HID capture (no double clicks)
+- Multi-monitor support with automatic screen detection
+- Cursor returns to original position after click
+- Adapts to resolution changes (including HiDPI/scaled modes)
+- Dynamic reconfiguration when displays are rearranged
+
+## How It Works
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Écran tactile  │────▶│  Notre Driver    │────▶│  macOS          │
-│  (USB HID)      │     │  (capture excl.) │     │  (clic injecté) │
+│  Touchscreen    │────▶│  Driver          │────▶│  macOS          │
+│  (USB HID)      │     │  (exclusive)     │     │  (CGEvent)      │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
-     Données brutes         Conversion            Clic à la bonne
-     X, Y, TouchDown        coordonnées           position absolue
+   Raw X, Y coords        Convert & map          Click at absolute
+   Button events          to screen space        position
 ```
 
-### Mode de capture EXCLUSIF (par défaut)
+## Requirements
 
-Le driver "capture" le périphérique tactile :
-- macOS ne reçoit plus les événements originaux
-- Seuls nos clics convertis sont envoyés
-- **Pas de double clic**
+- macOS 10.15+ (Catalina or later)
+- Xcode Command Line Tools: `xcode-select --install`
+- Corsair Xeneon Edge connected via USB-C
 
-### Mode PARTAGÉ (fallback)
+## Quick Start
 
-Si le mode exclusif échoue :
-- Le driver lit les événements en parallèle du système
-- Risque de double clic (système + notre injection)
-- À utiliser uniquement pour le debug
-
-## Gestion multi-écrans
-
-Le driver détecte automatiquement la position de l'écran Xeneon Edge dans l'espace global macOS :
-
-```
-┌───────────────────────────────────────────────────────┐
-│              Espace coordonnées macOS                 │
-│                                                       │
-│  ┌─────────────┐     ┌─────────────────┐             │
-│  │ Principal   │     │ Xeneon Edge     │             │
-│  │ (0, 0)      │     │ (1920, 0)       │             │
-│  │ 1920x1080   │     │ 2560x1440       │             │
-│  └─────────────┘     └─────────────────┘             │
-│                                                       │
-│  Touch à 50% X, 50% Y sur Xeneon                     │
-│  = Position globale (1920 + 1280, 720)               │
-│  = (3200, 720)                                       │
-└───────────────────────────────────────────────────────┘
-```
-
-**Si tu réorganises tes écrans**, le driver se met à jour automatiquement !
-
-## Prérequis
-
-- macOS 10.15+ (Catalina ou plus récent)
-- Xcode Command Line Tools : `xcode-select --install`
-- Écran Corsair Xeneon Edge branché en USB-C
-
-## Configuration de ton écran
-
-```
-TouchScreen:
-  VendorID:  0x27c0
-  ProductID: 0x0859
-  Fabricant: wch.cn
-```
-
-## Étape 1 : Analyser les rapports HID
-
-Avant de pouvoir créer le driver, on doit comprendre le format des données tactiles.
-
-### Compiler l'analyseur
+### 1. Clone and Build
 
 ```bash
+git clone https://github.com/YOUR_USERNAME/TouchscreenDriver.git
 cd TouchscreenDriver
-swiftc HIDAnalyzer.swift -o HIDAnalyzer -framework IOKit -framework CoreFoundation
+chmod +x run_driver.sh run_analyzer.sh
+./run_driver.sh
 ```
 
-### Exécuter l'analyseur
+### 2. Grant Permissions
+
+On first run, macOS will ask for permissions:
+
+1. **Accessibility**: Required to inject mouse clicks
+   - System Settings → Privacy & Security → Accessibility
+   - Add Terminal (or the compiled binary)
+
+2. **Input Monitoring**: Required to capture HID events
+   - System Settings → Privacy & Security → Input Monitoring
+   - Add Terminal (or the compiled binary)
+
+### 3. Run
 
 ```bash
-./HIDAnalyzer
+# Run the driver
+./run_driver.sh
+
+# Or run directly after building
+./TouchscreenDriver
 ```
 
-### Ce que tu verras
+Press `Ctrl+C` to stop the driver.
 
-Quand tu touches l'écran, tu devrais voir quelque chose comme :
+## Calibration
+
+The driver is pre-calibrated for the Xeneon Edge touchscreen:
+- X range: 0 - 16383
+- Y range: 0 - 9599
+- Touch detection: Button 1 (HID Usage Page 0x09)
+
+### Re-calibrate (if needed)
+
+If touch positions are incorrect, use the analyzer:
+
+```bash
+./run_analyzer.sh
+```
+
+Touch the screen corners and note the X/Y max values, then update `TouchscreenDriver.swift`:
+
+```swift
+var touchscreenMaxX: CGFloat = 16383  // Your X max
+var touchscreenMaxY: CGFloat = 9599   // Your Y max
+```
+
+## Hardware Info
 
 ```
-============================================================
-🖐️  TOUCH #1 DÉTECTÉ!
-============================================================
-  Digitizer / Tip Switch (toucher): 1 [min:0, max:1]
-  Generic Desktop / X: 2048 [min:0, max:4095]
-  Generic Desktop / Y: 1536 [min:0, max:4095]
-  Digitizer / Contact ID: 0
-👆 RELÂCHÉ à X=2048, Y=1536
-------------------------------------------------------------
+Touchscreen Controller:
+  Vendor ID:  0x27c0
+  Product ID: 0x0859
+  Manufacturer: wch.cn
+
+Display:
+  Native resolution: 2560x720 (32:9 ratio)
+  Recommended: 1920x540 scaled (better readability)
 ```
 
-**Note les valeurs `max` pour X et Y** — on en aura besoin pour la calibration.
+## Files
 
-## Étape 2 : Driver complet (à venir)
-
-Une fois qu'on connaît le format des données, je créerai le driver complet qui :
-1. Capture les touches
-2. Convertit en coordonnées écran
-3. Injecte des clics macOS à la bonne position
-
-## Permissions requises
-
-### Accès aux périphériques d'entrée
-
-Si l'outil ne détecte pas l'écran, tu devras peut-être autoriser l'accès :
-
-1. **Préférences Système** → **Confidentialité et sécurité** → **Confidentialité**
-2. Section **Surveillance de l'entrée** (Input Monitoring)
-3. Ajouter Terminal ou ton app
-
-### Accès Accessibilité (pour le driver final)
-
-Pour injecter des clics, il faudra aussi :
-
-1. **Préférences Système** → **Confidentialité et sécurité** → **Confidentialité**
-2. Section **Accessibilité**
-3. Ajouter l'app du driver
+| File | Description |
+|------|-------------|
+| `TouchscreenDriver.swift` | Main driver with HID capture and CGEvent injection |
+| `HIDAnalyzer.swift` | Diagnostic tool to inspect raw HID reports |
+| `run_driver.sh` | Build and run the driver |
+| `run_analyzer.sh` | Build and run the analyzer |
 
 ## Troubleshooting
 
-### "Écran tactile non trouvé"
+### "Touchscreen not found"
+- Ensure the Xeneon Edge is connected via USB-C
+- Check USB connection in System Information → USB
+- Verify Vendor/Product IDs match
 
-- Vérifie que l'écran est bien branché
-- Vérifie les VendorID/ProductID dans **Informations Système** → **USB**
-- Modifie les constantes dans le code si nécessaire
+### "Cannot open IOHIDManager"
+- Grant Input Monitoring permission to Terminal
+- Restart Terminal after granting permissions
+- Close other apps using the touchscreen (iCUE, etc.)
 
-### "Impossible d'ouvrir IOHIDManager"
+### Clicks at wrong position
+1. Run `./run_analyzer.sh` and touch screen corners
+2. Update touchscreenMaxX/Y values in the code
+3. Rebuild with `./run_driver.sh`
 
-- Ajoute Terminal dans les permissions "Surveillance de l'entrée"
-- Redémarre Terminal après avoir ajouté les permissions
+### Exclusive mode fails
+Another app may be using the touchscreen. Either:
+- Close conflicting apps (iCUE, etc.)
+- Switch to shared mode (edit `TouchscreenDriver.swift`):
+  ```swift
+  var captureMode: CaptureMode = .shared
+  ```
+  Note: Shared mode may cause double clicks.
 
-### Aucun événement affiché
+## Resolution Tips
 
-- Certains écrans nécessitent d'être l'écran principal
-- Essaie de toucher différentes zones de l'écran
-- Vérifie que le tactile est activé dans les paramètres de l'écran
+The native 2560x720 resolution can make text hard to read. For better readability:
 
-### Le mode exclusif échoue
+1. Install [BetterDisplay](https://github.com/waydabber/BetterDisplay)
+2. Set Xeneon Edge to 1920x540 (scaled, maintains 32:9 ratio)
 
-Si tu vois l'erreur "Impossible d'ouvrir IOHIDManager" en mode exclusif :
+The driver automatically adapts to any resolution.
 
-1. Vérifie qu'aucun autre programme n'utilise le tactile (iCUE, etc.)
-2. Tu peux passer en mode partagé temporairement :
+## License
 
-```swift
-// Dans TouchscreenDriver.swift, ligne ~50
-var captureMode: CaptureMode = .shared  // au lieu de .exclusive
-```
+MIT License - Feel free to use and modify.
 
-⚠️ En mode partagé, tu auras peut-être des doubles clics.
+## Credits
 
-### Clics décalés / mauvaise position
-
-1. Lance d'abord `HIDAnalyzer` et note les valeurs max de X et Y
-2. Modifie `TouchscreenDriver.swift` :
-
-```swift
-var touchscreenMaxX: CGFloat = 4095  // ← Ta valeur
-var touchscreenMaxY: CGFloat = 4095  // ← Ta valeur
-```
-
-3. Si l'écran n'est pas détecté par son nom, force l'index :
-
-```swift
-// Dans setupScreen(), remplace la détection automatique par :
-targetScreen = NSScreen.screens[1]  // ou l'index de ton Xeneon
-```
+Built with Swift using IOKit HID and CoreGraphics frameworks.
