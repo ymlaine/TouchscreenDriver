@@ -1,0 +1,33 @@
+# Binaires compilés
+HIDAnalyzer
+TouchscreenDriver
+
+# Build Swift
+.build/
+DerivedData/
+*.swiftmodule
+*.swiftdoc
+*.dSYM/
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Thumbnails
+Thumbs.db
+
+# IDE
+*.idea/
+*.vscode/
