@@ -172,4 +172,6 @@ MIT License - Feel free to use and modify.
 
 ## Credits
 
+Created by **Yves-Marie Lainé** in collaboration with **Claude** (Anthropic).
+
 Built with Swift using IOKit HID and CoreGraphics frameworks.
