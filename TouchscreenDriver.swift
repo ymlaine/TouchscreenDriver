@@ -76,19 +76,25 @@ func injectClick(at point: CGPoint) {
     let now = Date()
     guard now.timeIntervalSince(lastClickTime) > debounceInterval else { return }
     lastClickTime = now
-    
+
+    // Sauvegarder la position actuelle du curseur
+    let originalPosition = NSEvent.mouseLocation
+    // Convertir de NSScreen (origine bas-gauche) vers CG (origine haut-gauche)
+    let mainScreenHeight = NSScreen.screens[0].frame.height
+    let originalCGPosition = CGPoint(x: originalPosition.x, y: mainScreenHeight - originalPosition.y)
+
     switch clickMode {
     case .moveCursorAndClick:
         // Téléporter le curseur
         CGWarpMouseCursorPosition(point)
-        
+
         // Petit délai pour que le système enregistre la position
         usleep(10000) // 10ms
-        
+
     case .clickInPlace:
         break // Ne pas bouger le curseur
     }
-    
+
     // Créer et poster les événements souris
     guard let mouseDown = CGEvent(mouseEventSource: nil,
                                    mouseType: .leftMouseDown,
@@ -97,7 +103,7 @@ func injectClick(at point: CGPoint) {
         print("❌ Erreur création événement mouseDown")
         return
     }
-    
+
     guard let mouseUp = CGEvent(mouseEventSource: nil,
                                  mouseType: .leftMouseUp,
                                  mouseCursorPosition: point,
@@ -105,12 +111,18 @@ func injectClick(at point: CGPoint) {
         print("❌ Erreur création événement mouseUp")
         return
     }
-    
+
     // Poster les événements
     mouseDown.post(tap: .cghidEventTap)
     usleep(20000) // 20ms entre down et up
     mouseUp.post(tap: .cghidEventTap)
-    
+
+    // Restaurer la position originale du curseur
+    if clickMode == .moveCursorAndClick {
+        usleep(10000) // 10ms avant de restaurer
+        CGWarpMouseCursorPosition(originalCGPosition)
+    }
+
     print("🖱️  Clic injecté à (\(Int(point.x)), \(Int(point.y)))")
 }
 
