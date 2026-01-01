@@ -28,18 +28,38 @@ A macOS driver that converts touch input from the Corsair Xeneon Edge (14.5" tou
 - Xcode Command Line Tools: `xcode-select --install`
 - Corsair Xeneon Edge connected via USB-C
 
-## Quick Start
+## Installation
 
-### 1. Clone and Build
+### Automatic (Recommended)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/TouchscreenDriver.git
+git clone https://github.com/ymlaine/TouchscreenDriver.git
+cd TouchscreenDriver
+./install.sh
+```
+
+This will:
+- Compile the driver
+- Install it to `/usr/local/bin`
+- Configure it to start automatically at login
+- Start the driver immediately
+
+### Uninstall
+
+```bash
+./uninstall.sh
+```
+
+### Manual
+
+```bash
+git clone https://github.com/ymlaine/TouchscreenDriver.git
 cd TouchscreenDriver
 chmod +x run_driver.sh run_analyzer.sh
 ./run_driver.sh
 ```
 
-### 2. Grant Permissions
+### Grant Permissions
 
 On first run, macOS will ask for permissions:
 
@@ -51,17 +71,21 @@ On first run, macOS will ask for permissions:
    - System Settings → Privacy & Security → Input Monitoring
    - Add Terminal (or the compiled binary)
 
-### 3. Run
+### Control Commands
 
 ```bash
-# Run the driver
-./run_driver.sh
+# Status
+pgrep -f TouchscreenDriver && echo "Running" || echo "Stopped"
 
-# Or run directly after building
-./TouchscreenDriver
+# Logs
+tail -f /tmp/touchscreendriver.log
+
+# Stop
+launchctl unload ~/Library/LaunchAgents/com.ymlaine.touchscreendriver.plist
+
+# Start
+launchctl load ~/Library/LaunchAgents/com.ymlaine.touchscreendriver.plist
 ```
-
-Press `Ctrl+C` to stop the driver.
 
 ## Calibration
 
