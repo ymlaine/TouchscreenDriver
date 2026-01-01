@@ -138,10 +138,7 @@ func main() {
     """)
     
     // Créer le HID Manager
-    guard let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone)) else {
-        print("❌ Erreur: Impossible de créer IOHIDManager")
-        exit(1)
-    }
+    let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
     
     // Configurer le filtre pour notre écran tactile
     let deviceMatch: [String: Any] = [
@@ -197,6 +194,9 @@ func main() {
     // Lancer le RunLoop
     CFRunLoopRun()
 }
+
+// Désactiver le buffering pour voir la sortie en temps réel
+setbuf(stdout, nil)
 
 // Lancer le programme
 main()

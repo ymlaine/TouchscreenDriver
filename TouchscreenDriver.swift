@@ -13,10 +13,9 @@ import AppKit
 let TOUCHSCREEN_VENDOR_ID: Int = 0x27c0
 let TOUCHSCREEN_PRODUCT_ID: Int = 0x0859
 
-// Plages de coordonnées du touchscreen (à déterminer via HIDAnalyzer)
-// Ces valeurs sont des estimations, à ajuster!
-var touchscreenMaxX: CGFloat = 4095
-var touchscreenMaxY: CGFloat = 4095
+// Plages de coordonnées du touchscreen (calibrées via HIDAnalyzer)
+var touchscreenMaxX: CGFloat = 16383
+var touchscreenMaxY: CGFloat = 9599
 var touchscreenMinX: CGFloat = 0
 var touchscreenMinY: CGFloat = 0
 
@@ -156,11 +155,14 @@ func hidInputCallback(context: UnsafeMutableRawPointer?,
         }
     }
     
-    // Détecter le toucher (Tip Switch)
-    if usagePage == 0x0D && usage == 0x42 {
+    // Détecter le toucher (Tip Switch OU Button 1)
+    // Le Xeneon Edge utilise Button 1 (usagePage 0x09, usage 0x01) au lieu de Tip Switch
+    let isTouchEvent = (usagePage == 0x0D && usage == 0x42) || (usagePage == 0x09 && usage == 0x01)
+
+    if isTouchEvent {
         let wasTouching = isTouching
         isTouching = intValue != 0
-        
+
         if isTouching && !wasTouching {
             // Nouveau toucher → clic
             let screenPoint = convertToScreenCoordinates(rawX: Int(currentX), rawY: Int(currentY))
@@ -211,11 +213,20 @@ func setupScreen() {
 func updateScreenGeometry() {
     if let screen = targetScreen {
         let frame = screen.frame
+
+        // NSScreen utilise l'origine en bas à gauche, mais CGEvent utilise l'origine en haut à gauche
+        // On doit convertir les coordonnées Y
+        let mainScreenHeight = NSScreen.screens[0].frame.height
+
         screenOffsetX = frame.origin.x
-        screenOffsetY = frame.origin.y
+        // Convertir Y: cgY = mainHeight - nsY - screenHeight
+        screenOffsetY = mainScreenHeight - frame.origin.y - frame.height
         screenWidth = frame.width
         screenHeight = frame.height
-        print("📐 Écran cible: \(Int(screenWidth))x\(Int(screenHeight)) @ (\(Int(screenOffsetX)), \(Int(screenOffsetY)))")
+
+        print("📐 Écran cible: \(Int(screenWidth))x\(Int(screenHeight))")
+        print("   NSScreen origin: (\(Int(frame.origin.x)), \(Int(frame.origin.y)))")
+        print("   CGEvent origin:  (\(Int(screenOffsetX)), \(Int(screenOffsetY)))")
     }
 }
 
@@ -298,10 +309,7 @@ func main() {
     """)
     
     // Créer le HID Manager
-    guard let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone)) else {
-        print("❌ Erreur: Impossible de créer IOHIDManager")
-        exit(1)
-    }
+    let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
     
     // Filtrer pour notre écran tactile
     let deviceMatch: [String: Any] = [
@@ -362,6 +370,9 @@ func main() {
     // Lancer le RunLoop
     CFRunLoopRun()
 }
+
+// Désactiver le buffering pour voir la sortie en temps réel
+setbuf(stdout, nil)
 
 // Point d'entrée
 main()
