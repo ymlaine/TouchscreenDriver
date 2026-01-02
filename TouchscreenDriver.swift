@@ -85,6 +85,9 @@ func injectClick(at point: CGPoint) {
 
     switch clickMode {
     case .moveCursorAndClick:
+        // Cacher le curseur pour éviter le curseur fantôme
+        CGDisplayHideCursor(CGMainDisplayID())
+
         // Téléporter le curseur
         CGWarpMouseCursorPosition(point)
 
@@ -121,6 +124,9 @@ func injectClick(at point: CGPoint) {
     if clickMode == .moveCursorAndClick {
         usleep(10000) // 10ms avant de restaurer
         CGWarpMouseCursorPosition(originalCGPosition)
+
+        // Réafficher le curseur
+        CGDisplayShowCursor(CGMainDisplayID())
     }
 
     print("🖱️  Clic injecté à (\(Int(point.x)), \(Int(point.y)))")
@@ -149,7 +155,10 @@ func hidInputCallback(context: UnsafeMutableRawPointer?,
                       result: IOReturn,
                       sender: UnsafeMutableRawPointer?,
                       value: IOHIDValue) {
-    
+
+    // Toujours mettre à jour la géométrie de l'écran (NSScreen peut changer à tout moment)
+    updateScreenFromCurrentList()
+
     let element = IOHIDValueGetElement(value)
     let usagePage = IOHIDElementGetUsagePage(element)
     let usage = IOHIDElementGetUsage(element)
@@ -222,6 +231,38 @@ func setupScreen() {
     updateScreenGeometry()
 }
 
+var xeneonDisplayID: CGDirectDisplayID = 0
+
+func findXeneonDisplayID() {
+    // Trouver l'ID du display Xeneon au démarrage
+    var displayCount: UInt32 = 0
+    CGGetActiveDisplayList(0, nil, &displayCount)
+
+    var displays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
+    CGGetActiveDisplayList(displayCount, &displays, &displayCount)
+
+    // Prendre le display qui n'est pas le principal
+    for display in displays {
+        if display != CGMainDisplayID() {
+            xeneonDisplayID = display
+            break
+        }
+    }
+}
+
+func updateScreenFromCurrentList() {
+    guard xeneonDisplayID != 0 else { return }
+
+    // Utiliser CGDisplayBounds qui se met à jour en temps réel (contrairement à NSScreen.screens)
+    let bounds = CGDisplayBounds(xeneonDisplayID)
+
+    // CGDisplayBounds utilise le système de coordonnées avec origine en haut à gauche
+    screenOffsetX = bounds.origin.x
+    screenOffsetY = bounds.origin.y
+    screenWidth = bounds.width
+    screenHeight = bounds.height
+}
+
 func updateScreenGeometry() {
     if let screen = targetScreen {
         let frame = screen.frame
@@ -251,9 +292,17 @@ func updateScreenGeometry() {
 // Observer pour les changements d'écran
 // ============================================
 
+// Sauvegarde de la dernière géométrie connue pour détecter les changements
+var lastKnownScreenOriginX: CGFloat = 0
+var lastKnownScreenOriginY: CGFloat = 0
+var lastKnownScreenWidth: CGFloat = 0
+var lastKnownScreenHeight: CGFloat = 0
+
 class ScreenChangeObserver {
+    var timer: DispatchSourceTimer?
+
     init() {
-        // Observer les changements de configuration d'écran
+        // Observer les changements de configuration d'écran (connexion/déconnexion)
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -261,7 +310,50 @@ class ScreenChangeObserver {
         ) { _ in
             print("\n🔄 Configuration d'écran modifiée! Mise à jour...")
             setupScreen()
+            saveCurrentGeometry()
         }
+
+        // Timer GCD pour vérifier les changements de position
+        timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+        timer?.schedule(deadline: .now() + 2.0, repeating: 2.0)
+        timer?.setEventHandler {
+            checkForGeometryChanges()
+        }
+        timer?.resume()
+    }
+}
+
+func saveCurrentGeometry() {
+    if let screen = targetScreen {
+        lastKnownScreenOriginX = screen.frame.origin.x
+        lastKnownScreenOriginY = screen.frame.origin.y
+        lastKnownScreenWidth = screen.frame.width
+        lastKnownScreenHeight = screen.frame.height
+    }
+}
+
+func checkForGeometryChanges() {
+    // Chercher l'écran Xeneon dans la liste actuelle (qui est mise à jour par le système)
+    guard let currentXeneon = NSScreen.screens.first(where: {
+        $0.localizedName.contains("XENEON") || $0.localizedName.contains("Corsair")
+    }) ?? (NSScreen.screens.count > 1 ? NSScreen.screens[1] : nil) else {
+        return
+    }
+
+    let frame = currentXeneon.frame
+    if frame.origin.x != lastKnownScreenOriginX ||
+       frame.origin.y != lastKnownScreenOriginY ||
+       frame.width != lastKnownScreenWidth ||
+       frame.height != lastKnownScreenHeight {
+
+        print("\n🔄 Changement de disposition détecté!")
+        print("   Avant: (\(Int(lastKnownScreenOriginX)), \(Int(lastKnownScreenOriginY))) \(Int(lastKnownScreenWidth))x\(Int(lastKnownScreenHeight))")
+        print("   Après: (\(Int(frame.origin.x)), \(Int(frame.origin.y))) \(Int(frame.width))x\(Int(frame.height))")
+
+        // Mettre à jour la référence à l'écran
+        targetScreen = currentXeneon
+        updateScreenGeometry()
+        saveCurrentGeometry()
     }
 }
 
@@ -283,10 +375,10 @@ func checkAccessibilityPermission() -> Bool {
 func main() {
     print("""
     ╔════════════════════════════════════════════════════════════╗
-    ║   Touchscreen Driver - Corsair Xeneon Edge                 ║
+    ║   Touchscreen Driver - Corsair Xeneon Edge      v1.3.0     ║
     ║   Convertit les touches en clics absolus                   ║
     ╚════════════════════════════════════════════════════════════╝
-    
+
     """)
     
     // Vérifier les permissions Accessibilité
@@ -309,7 +401,9 @@ func main() {
     
     // Configurer l'écran cible
     setupScreen()
-    
+    findXeneonDisplayID()
+    saveCurrentGeometry()
+
     // Initialiser l'observer pour les changements d'écran
     screenObserver = ScreenChangeObserver()
     
