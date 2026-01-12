@@ -1,5 +1,9 @@
 # Touchscreen Driver for Corsair Xeneon Edge
 
+> **Co-authored by [Yves-Marie Lainé](https://github.com/ymlaine) and [Claude](https://claude.ai) (Anthropic AI)**
+>
+> This driver was developed through human-AI collaboration using Claude Code.
+
 A macOS driver that converts touch input from the Corsair Xeneon Edge (14.5" touch bar, 2560x720) into mouse clicks at the correct absolute screen position.
 
 ## Features
