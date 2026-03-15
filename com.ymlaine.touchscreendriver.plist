@@ -15,6 +15,10 @@
         <key>SuccessfulExit</key>
         <false/>
     </dict>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
     <key>StandardOutPath</key>
     <string>/tmp/touchscreendriver.log</string>
     <key>StandardErrorPath</key>
