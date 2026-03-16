@@ -153,12 +153,20 @@ func injectClick(at point: CGPoint) {
     let originalCGPosition = CGPoint(x: originalPosition.x,
                                      y: mainScreenHeight - originalPosition.y)
 
+    // Save the frontmost application before the click.
+    // The injected click on the Xeneon Edge shifts macOS key focus to whatever
+    // window is at the touch point (e.g., Stream Deck's Electron window).
+    // We re-activate the original app after the click so that Stream Deck
+    // hotkey actions deliver keystrokes to the correct app.
+    let previousApp = NSWorkspace.shared.frontmostApplication
+
     // --- Begin cursor-protected click ---
     // 1. Suppress all mouse-movement events (event tap)
     // 2. Hide cursor + warp to touch point
     // 3. Inject click
     // 4. Warp back to original position + show cursor
-    // 5. Keep suppression active to absorb delayed responses
+    // 5. Re-activate the previously focused app
+    // 6. Keep suppression active to absorb delayed responses
     suppressCursorEvents = true
     CGDisplayHideCursor(CGMainDisplayID())
     CGWarpMouseCursorPosition(point)
@@ -190,6 +198,17 @@ func injectClick(at point: CGPoint) {
     // Warp back immediately after click
     CGWarpMouseCursorPosition(originalCGPosition)
     CGDisplayShowCursor(CGMainDisplayID())
+
+    // Re-activate the previously focused app after a short delay.
+    // The click has been delivered to Stream Deck; now restore focus so that
+    // any hotkey/keystroke Stream Deck sends lands on the correct app.
+    // 50ms is enough for the click to register but well before Stream Deck
+    // processes the button action and sends a keystroke (~100-300ms).
+    if let app = previousApp {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            app.activate()
+        }
+    }
 
     // Keep suppression active for 300ms to absorb any delayed
     // Stream Deck hover/focus events that would displace the cursor
@@ -471,7 +490,7 @@ func main() {
 
     log("""
     ======================================================
-       Touchscreen Driver - Corsair Xeneon Edge  v3.0.0
+       Touchscreen Driver - Corsair Xeneon Edge  v3.1.0
        Converts touch input to absolute mouse clicks
     ======================================================
 
